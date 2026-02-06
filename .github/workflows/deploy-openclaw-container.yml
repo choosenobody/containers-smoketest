@@ -12,32 +12,53 @@ jobs:
     steps:
       - name: Show context
         run: |
+          set -euxo pipefail
           echo "WORKFLOW=${GITHUB_WORKFLOW}"
           echo "JOB=${GITHUB_JOB}"
           echo "REF=${GITHUB_REF}"
           echo "SHA=${GITHUB_SHA}"
+          node -v || true
+          npm -v || true
+          python3 --version || true
 
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: List repo (debug)
+        run: |
+          set -euxo pipefail
+          ls -la
+          echo "---- openclaw-container ----"
+          ls -la openclaw-container || true
+          echo "---- openclaw-container/src ----"
+          ls -la openclaw-container/src || true
+          echo "---- wrangler files ----"
+          find openclaw-container -maxdepth 2 -type f -iname "wrangler.*" -print || true
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      # NOTE:
-      # npm ci 会要求 package-lock.json 与 package.json 完全一致。
-      # 你当前 repo 的 openclaw-container 锁文件不同步，会导致 npm ci 直接失败。
-      # 先用 npm install 跑通；等你修复 lockfile 后再改回 npm ci。
       - name: Install deps
         working-directory: openclaw-container
-        run: npm install
+        run: |
+          set -euxo pipefail
+          npm install
+          npm ls --depth=0 || true
 
       - name: Typecheck
         working-directory: openclaw-container
-        run: npm run typecheck --if-present
+        run: |
+          set -euxo pipefail
+          npm run typecheck --if-present
 
-      - name: Deploy (wrangler) and capture URL
+      - name: Wrangler version (debug)
+        run: |
+          set -euxo pipefail
+          npx wrangler@4.63.0 --version
+
+      - name: Deploy (wrangler) (FULL LOG)
         working-directory: openclaw-container
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -47,46 +68,22 @@ jobs:
           TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
           WRANGLER_LOG: debug
         run: |
-          set -euo pipefail
-          echo "Deploying worker..."
-          DEPLOY_OUTPUT="$(npx wrangler@4.63.0 deploy 2>&1)"
-          echo "$DEPLOY_OUTPUT"
+          set -euxo pipefail
+          echo "=== Sanity check secrets (length only) ==="
+          echo "CLOUDFLARE_API_TOKEN length: ${#CLOUDFLARE_API_TOKEN}"
+          echo "CLOUDFLARE_ACCOUNT_ID length: ${#CLOUDFLARE_ACCOUNT_ID}"
+          echo "TELEGRAM_BOT_TOKEN length: ${#TELEGRAM_BOT_TOKEN}"
+          echo "GEMINI_API_KEY length: ${#GEMINI_API_KEY}"
+          echo "=== Wrangler deploy ==="
+          npx wrangler@4.63.0 deploy
 
-          # Extract the workers.dev URL from wrangler output
-          DEPLOY_URL="$(echo "$DEPLOY_OUTPUT" | grep -Eo 'https://[a-zA-Z0-9.-]+\.workers\.dev' | head -n1 || true)"
-          if [ -z "$DEPLOY_URL" ]; then
-            echo "❌ Cannot find deployment URL from wrangler output."
-            echo "Tip: ensure wrangler printed a workers.dev URL, or update the grep pattern."
-            exit 1
-          fi
-
-          echo "✅ DEPLOY_URL=$DEPLOY_URL"
-          echo "DEPLOY_URL=$DEPLOY_URL" >> "$GITHUB_ENV"
-
-      - name: Set Telegram Webhook (auto)
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
-        run: |
-          set -euo pipefail
-          if [ -z "${DEPLOY_URL:-}" ]; then
-            echo "❌ DEPLOY_URL is empty; previous step failed to capture URL."
-            exit 1
-          fi
-
-          HOOK="${DEPLOY_URL%/}/telegram/webhook"
-          echo "Setting Telegram webhook to: $HOOK"
-
-          if [ -n "${TELEGRAM_WEBHOOK_SECRET:-}" ]; then
-            curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook"               -H "content-type: application/json"               -d "{"url":"$HOOK","secret_token":"$TELEGRAM_WEBHOOK_SECRET"}" | cat
-          else
-            curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook"               -H "content-type: application/json"               -d "{"url":"$HOOK"}" | cat
-          fi
-
-      - name: Show webhook info (debug)
+      - name: Set Telegram Webhook (manual URL)
+        if: ${{ always() }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         run: |
-          set -euo pipefail
+          set -euxo pipefail
+          echo "If deploy succeeded, set webhook manually to:"
+          echo "https://<your-worker>.workers.dev/telegram/webhook"
           echo "Webhook info:"
           curl -sS "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo" | cat
