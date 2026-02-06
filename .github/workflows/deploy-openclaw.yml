@@ -45,12 +45,32 @@ jobs:
           npm install -D wrangler@latest
           npx wrangler --version
 
+      - name: Debug which config is used
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          echo "WORKDIR=$PWD"
+          echo "---- list files ----"
+          ls -la
+          echo "---- show wrangler config ----"
+          if [ -f wrangler.jsonc ]; then
+            echo "wrangler.jsonc exists"
+            cat wrangler.jsonc | sed -n '1,120p'
+          fi
+          if [ -f wrangler.json ]; then
+            echo "wrangler.json exists"
+            cat wrangler.json | sed -n '1,120p'
+          fi
+          if [ -f wrangler.toml ]; then
+            echo "wrangler.toml exists"
+            cat wrangler.toml | sed -n '1,120p'
+          fi
+
       - name: Wrangler deploy (FULL DEBUG)
         working-directory: ${{ env.WORKDIR }}
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          # 如果你有�?account id，也可以加上，能减少某些交互/歧义
+          # å¦‚æžœä½ æœ‰æ”?account idï¼Œä¹Ÿå¯ä»¥åŠ ä¸Šï¼Œèƒ½å‡å°‘æŸäº›äº¤äº’/æ­§ä¹‰
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           WRANGLER_LOG: debug
         run: |
-          npx wrangler deploy
+          npx wrangler deploy --config wrangler.jsonc --name openclaw-container
