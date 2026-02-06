@@ -3,14 +3,40 @@ name: Deploy Containers Smoke Test
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch: {}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Deploy via Wrangler
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Print versions (diagnostic)
+        run: |
+          node -v
+          npm -v
+          npx -v
+          docker version
+          docker info
+
+      - name: Install dependencies
+        run: |
+          if [ -f package-lock.json ]; then
+            npm ci
+          else
+            npm install
+          fi
+
+      - name: Deploy via Wrangler (debug)
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: deploy --log-level debug
+        env:
+          WRANGLER_LOG: debug
