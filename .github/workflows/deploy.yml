@@ -53,4 +53,4 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           WRANGLER_LOG: debug
         run: |
-          npx wrangler deploy --log-level debug
+          npx wrangler deploy
