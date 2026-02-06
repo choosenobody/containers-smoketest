@@ -9,6 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@cloudflare/containers": "^0.0.16",
     "hono": "^4.11.6"
   },
   "devDependencies": {
