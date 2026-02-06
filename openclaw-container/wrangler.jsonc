@@ -18,7 +18,7 @@
 		"bindings": [
 			{
 				"class_name": "MyContainer",
-				"name": "MY_CONTAINER"
+				"name": "openclaw-container"
 			}
 		]
 	},
