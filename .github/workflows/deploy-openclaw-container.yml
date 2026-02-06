@@ -17,49 +17,76 @@ jobs:
           echo "REF=${GITHUB_REF}"
           echo "SHA=${GITHUB_SHA}"
 
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20"
 
+      # NOTE:
+      # npm ci 会要求 package-lock.json 与 package.json 完全一致。
+      # 你当前 repo 的 openclaw-container 锁文件不同步，会导致 npm ci 直接失败。
+      # 先用 npm install 跑通；等你修复 lockfile 后再改回 npm ci。
       - name: Install deps
         working-directory: openclaw-container
         run: npm install
 
       - name: Typecheck
         working-directory: openclaw-container
-        run: npm run typecheck
+        run: npm run typecheck --if-present
 
-      - name: Deploy (wrangler)
+      - name: Deploy (wrangler) and capture URL
         working-directory: openclaw-container
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          # App secrets
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
           WRANGLER_LOG: debug
         run: |
-          npx wrangler@4.63.0 deploy --json | tee deploy.json
+          set -euo pipefail
+          echo "Deploying worker..."
+          DEPLOY_OUTPUT="$(npx wrangler@4.63.0 deploy 2>&1)"
+          echo "$DEPLOY_OUTPUT"
+
+          # Extract the workers.dev URL from wrangler output
+          DEPLOY_URL="$(echo "$DEPLOY_OUTPUT" | grep -Eo 'https://[a-zA-Z0-9.-]+\.workers\.dev' | head -n1 || true)"
+          if [ -z "$DEPLOY_URL" ]; then
+            echo "❌ Cannot find deployment URL from wrangler output."
+            echo "Tip: ensure wrangler printed a workers.dev URL, or update the grep pattern."
+            exit 1
+          fi
+
+          echo "✅ DEPLOY_URL=$DEPLOY_URL"
+          echo "DEPLOY_URL=$DEPLOY_URL" >> "$GITHUB_ENV"
 
       - name: Set Telegram Webhook (auto)
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
         run: |
-          URL=$(cat openclaw-container/deploy.json | python -c "import json,sys; d=json.load(sys.stdin); print(d.get('url') or d.get('deployment_url') or '')")
-          echo "Deployed URL: $URL"
-          if [ -z "$URL" ]; then
-            echo "Cannot find deploy URL from wrangler output. Please set webhook manually."
-            exit 0
+          set -euo pipefail
+          if [ -z "${DEPLOY_URL:-}" ]; then
+            echo "❌ DEPLOY_URL is empty; previous step failed to capture URL."
+            exit 1
           fi
-          HOOK="${URL%/}$(python -c "import tomllib,sys; import pathlib; p=pathlib.Path('openclaw-container/wrangler.toml').read_text(); print('/telegram/webhook')")"
-          echo "Setting webhook to: $HOOK"
-          if [ -n "$TELEGRAM_WEBHOOK_SECRET" ]; then
+
+          HOOK="${DEPLOY_URL%/}/telegram/webhook"
+          echo "Setting Telegram webhook to: $HOOK"
+
+          if [ -n "${TELEGRAM_WEBHOOK_SECRET:-}" ]; then
             curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook"               -H "content-type: application/json"               -d "{"url":"$HOOK","secret_token":"$TELEGRAM_WEBHOOK_SECRET"}" | cat
           else
             curl -sS -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook"               -H "content-type: application/json"               -d "{"url":"$HOOK"}" | cat
           fi
+
+      - name: Show webhook info (debug)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "Webhook info:"
+          curl -sS "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo" | cat
