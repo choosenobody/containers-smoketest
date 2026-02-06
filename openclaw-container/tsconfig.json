@@ -15,5 +15,8 @@
   },
   "include": [
     "src/**/*.ts"
+  ],
+  "exclude": [
+    "src/openclaw-container_src_index.ts"
   ]
 }

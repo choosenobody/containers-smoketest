@@ -2,14 +2,6 @@ name = "openclaw-container"
 main = "src/index.ts"
 compatibility_date = "2026-02-06"
 
-# 如果你想绑定到你自己的 workers.dev 子域（例如 moltbot-sandbox.inferflux.workers.dev），
-# 请在 Cloudflare Dashboard -> Workers & Pages -> Settings 里配置。
-# 或者你也可以在这里加 routes（绑定到你自己的域名）。
-
 [vars]
-# 你的 Cloudflare AI Gateway baseUrl（你给的例子）
 AI_GATEWAY_BASE_URL = "https://gateway.ai.cloudflare.com/v1/fdd89033106b65403728580a7964edc9/inferflux/google-ai-studio"
-# Gemini 默认模型（可改成你想用的）
 GEMINI_MODEL = "gemini-1.5-pro-latest"
-# Telegram webhook path（保持默认即可）
-TELEGRAM_WEBHOOK_PATH = "/telegram/webhook"

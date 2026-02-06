@@ -6,11 +6,13 @@ import type { Env } from "./types";
  */
 export async function geminiChat(env: Env, userText: string): Promise<string> {
   const model = env.GEMINI_MODEL || "gemini-1.5-pro-latest";
-  const url = `${env.AI_GATEWAY_BASE_URL}/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
+  const url =
+    `${env.AI_GATEWAY_BASE_URL}/v1beta/models/${encodeURIComponent(model)}:generateContent` +
+    `?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
 
   const body = {
     contents: [{ role: "user", parts: [{ text: userText }] }],
-    generationConfig: { temperature: 0.6 }
+    generationConfig: { temperature: 0.6 },
   };
 
   const resp = await fetch(url, {
