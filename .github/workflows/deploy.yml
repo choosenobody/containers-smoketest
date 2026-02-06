@@ -5,27 +5,32 @@ on:
     branches: [ "main" ]
   workflow_dispatch: {}
 
+env:
+  WORKDIR: cf-containers-smoketest
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: "20"
 
-      - name: Print versions (diagnostic)
+      - name: Diagnostic tree
         run: |
-          node -v
-          npm -v
-          npx -v
-          docker version
-          docker info
+          pwd
+          ls -la
+          echo "---- WORKDIR ----"
+          ls -la "${WORKDIR}"
+          echo "---- wrangler config ----"
+          (test -f "${WORKDIR}/wrangler.toml" || test -f "${WORKDIR}/wrangler.json" || test -f "${WORKDIR}/wrangler.jsonc" || test -f "${WORKDIR}/wrangler.yaml" || test -f "${WORKDIR}/wrangler.yml") \
+            && echo "OK: wrangler config found" \
+            || (echo "ERR: missing wrangler config" && exit 1)
 
       - name: Install dependencies
+        working-directory: ${{ env.WORKDIR }}
         run: |
           if [ -f package-lock.json ]; then
             npm ci
@@ -37,6 +42,7 @@ jobs:
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: ${{ env.WORKDIR }}
           command: deploy --log-level debug
         env:
           WRANGLER_LOG: debug
