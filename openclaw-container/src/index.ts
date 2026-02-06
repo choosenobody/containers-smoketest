@@ -1,6 +1,13 @@
 import { Hono } from "hono";
 import type { Env } from "./types";
 import { geminiChat } from "./gemini";
+import { Container } from "@cloudflare/containers";
+
+// ✅ 必须导出：类名必须叫 MyContainer（与 wrangler.jsonc 里的 class_name 匹配）
+export class MyContainer extends Container {
+  // 这里填你容器内服务监听的端口；不确定就先用 8080（容器模板常用）
+  defaultPort = 8080;
+}
 
 const app = new Hono<{ Bindings: Env }>();
 
