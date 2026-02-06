@@ -6,7 +6,7 @@ on:
   workflow_dispatch: {}
 
 env:
-  WORKDIR: cf-containers-smoketest
+  WORKDIR: openclaw-container
 
 jobs:
   deploy:
