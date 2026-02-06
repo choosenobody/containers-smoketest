@@ -1,0 +1,56 @@
+name: Deploy OpenClaw Container (verbose)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch: {}
+
+env:
+  WORKDIR: openclaw-container
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Diagnostic tree
+        run: |
+          pwd
+          ls -la
+          echo "---- WORKDIR ----"
+          ls -la "${WORKDIR}"
+          echo "---- wrangler config ----"
+          (test -f "${WORKDIR}/wrangler.toml" || test -f "${WORKDIR}/wrangler.json" || test -f "${WORKDIR}/wrangler.jsonc" || test -f "${WORKDIR}/wrangler.yaml" || test -f "${WORKDIR}/wrangler.yml") \
+            && echo "OK: wrangler config found" \
+            || (echo "ERR: missing wrangler config" && exit 1)
+
+      - name: Docker info (Containers need Docker build)
+        run: |
+          docker version
+          docker info
+
+      - name: Install dependencies
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          npm ci
+
+      - name: Install Wrangler (explicit)
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          npm install -D wrangler@latest
+          npx wrangler --version
+
+      - name: Wrangler deploy (FULL DEBUG)
+        working-directory: ${{ env.WORKDIR }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # 如果你有�?account id，也可以加上，能减少某些交互/歧义
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_LOG: debug
+        run: |
+          npx wrangler deploy
