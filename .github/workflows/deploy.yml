@@ -1,10 +1,7 @@
 name: Deploy Containers Smoke Test (verbose)
 
 on:
-  push:
-    branches: [ "main" ]
   workflow_dispatch: {}
-
 env:
   WORKDIR: openclaw-container
 
@@ -12,6 +9,11 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      - name: Assert workflow identity
+        run: |
+          echo "WORKFLOW=$GITHUB_WORKFLOW"
+          echo "JOB=$GITHUB_JOB"
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
