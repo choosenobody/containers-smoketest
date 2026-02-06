@@ -1,0 +1,7 @@
+-  containers-smoketest API token
+
+Vk0Ue4QmIFKrDSFds6q4nL0TewrfWCEH--frniSP
+
+-- Cloudflare account ID
+
+fdd89033106b65403728580a7964edc9
