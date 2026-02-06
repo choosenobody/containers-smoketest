@@ -1,4 +1,4 @@
-name: Deploy Containers Smoke Test
+name: Deploy Containers Smoke Test (verbose)
 
 on:
   push:
@@ -29,20 +29,28 @@ jobs:
             && echo "OK: wrangler config found" \
             || (echo "ERR: missing wrangler config" && exit 1)
 
+      - name: Docker info (Containers need Docker build)
+        run: |
+          docker version
+          docker info
+
       - name: Install dependencies
         working-directory: ${{ env.WORKDIR }}
         run: |
-          if [ -f package-lock.json ]; then
-            npm ci
-          else
-            npm install
-          fi
+          npm ci
 
-      - name: Deploy via Wrangler (debug)
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          workingDirectory: ${{ env.WORKDIR }}
-          command: deploy --log-level debug
+      - name: Install Wrangler (explicit)
+        working-directory: ${{ env.WORKDIR }}
+        run: |
+          npm install -D wrangler@latest
+          npx wrangler --version
+
+      - name: Wrangler deploy (FULL DEBUG)
+        working-directory: ${{ env.WORKDIR }}
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # 如果你有放 account id，也可以加上，能减少某些交互/歧义
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           WRANGLER_LOG: debug
+        run: |
+          npx wrangler deploy --log-level debug
